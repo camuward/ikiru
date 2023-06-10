@@ -51,7 +51,7 @@ impl<'a> Deserialize<'a> for Registers {
 // tied to GPUCompactedRegisterState - DO NOT MODIFY
 // this list is based on the same list used internally by GX2ContextState, excluding ALU constants
 const GPU_REG_SER_MAP_V1: &[(usize, usize)] = &[
-    // Config register
+    // Cfg register
     (0x2232, 0x2),
     (0x2235, 0x1),
     (0x223A, 0x1),
