@@ -1,11 +1,12 @@
 //! Command-line configuration.
+use std::fs::File;
 use std::path::PathBuf;
 
 use clap::Parser;
 use thiserror::Error;
 use tracing::Level;
 
-use crate::cfg::Instance;
+use crate::app::cfg::Instance;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
@@ -23,8 +24,16 @@ pub struct Cli {
 impl Cli {
     #[tracing::instrument(ret(level = Level::DEBUG))]
     pub fn read_cfg(&self) -> eyre::Result<Instance> {
+        let cfg_dir = self.find_cfg_dir()?;
+        let cfg_file = File::open(cfg_dir.join("config.toml"))?;
+        let buf = std::io::read_to_string(cfg_file)?;
+
         Ok(Instance {
-            cfg_dir: self.find_cfg_dir()?,
+            cfg_dir,
+            cfg_file,
+            cfg: toml_edit::de::from_str(&buf)?,
+
+            game_cfgs: Default::default(),
         })
     }
 

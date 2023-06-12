@@ -1,7 +1,9 @@
 use clap::Parser;
 
-use ikiru::app::App;
-use ikiru::cli::Cli;
+mod app;
+mod cli;
+mod cfg;
+mod gfx;
 
 fn main() -> color_eyre::Result<()> {
     let cli = Cli::parse();

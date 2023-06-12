@@ -1,4 +1,5 @@
 //! Hardware and software emulation of the Wii U.
+#![allow(dead_code)]
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -11,6 +12,7 @@ pub mod cafe;
 pub mod cpu;
 pub mod gpu;
 pub mod instance;
+pub mod util;
 
 /// A running emulator instance.
 pub struct Emulator {
@@ -100,3 +102,8 @@ impl EmuState {
         }
     }
 }
+
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VER_MAJOR: u32 = pkg_version::pkg_version_major!();
+pub const VER_MINOR: u32 = pkg_version::pkg_version_minor!();
+pub const VER_PATCH: u32 = pkg_version::pkg_version_patch!();

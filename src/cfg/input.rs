@@ -8,6 +8,11 @@ mod profile;
 mod sdl;
 mod xinput;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InputMap {
+    pub controllers: HashMap<u8, Controller>,
+}
+
 pub fn list_devices() -> Vec<InputType> {
     sdl::list_devices()
         .into_iter()
@@ -97,4 +102,9 @@ impl std::fmt::Display for EmuInput {
             }
         )
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }

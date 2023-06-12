@@ -1,4 +1,4 @@
-use crate::emu::cafe::os::common::{FunctionEntry, PointerEntry};
+use crate::cafe::os::common::{FunctionEntry, PointerEntry};
 
 /// Emulated Wii U.
 pub struct Instance {
