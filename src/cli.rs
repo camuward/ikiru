@@ -1,4 +1,4 @@
-//! Command-line cfguration.
+//! Command-line configuration.
 use std::path::PathBuf;
 
 use clap::Parser;

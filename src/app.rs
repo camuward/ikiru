@@ -42,6 +42,8 @@ impl App {
         app: Instance,
         title: TitleId,
     ) -> eyre::Result<Self> {
+        let game = app.game_cfgs.get_cfg(title)?;
+
         Ok(Self {
             app,
             rt: Runtime::new()?,

@@ -1,12 +1,11 @@
 //! Non-emulation graphics code.
+use std::cell::Cell;
 use std::ffi::CString;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use std::{cell::Cell, path::PathBuf};
 
 use ash::{vk, Entry};
-use derive_builder::Builder;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},

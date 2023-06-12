@@ -8,6 +8,25 @@ fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     tracing_subscriber::fmt::init();
 
+    let instance = cli.read_cfg()?;
+
+    match cli.title {
+        Some(title) => {
+            let title = title.parse()?;
+            start_eframe(move |cc| Box::new(App::new_load_title(cc, instance, title).unwrap()))
+                .unwrap()
+        }
+        None => start_eframe(|cc| Box::new(App::new(cc, instance).unwrap())).unwrap(),
+    }
+
+    Ok(())
+}
+
+/// Run the [`App`].
+fn start_eframe<F>(app_creator: F) -> Result<(), eframe::Error>
+where
+    F: FnOnce(&eframe::CreationContext) -> Box<dyn eframe::App> + 'static,
+{
     let options = eframe::NativeOptions {
         decorated: false,
         transparent: true,
@@ -16,23 +35,5 @@ fn main() -> color_eyre::Result<()> {
         ..Default::default()
     };
 
-    let instance = cli.read_cfg()?;
-
-    Ok(match cli.title {
-        Some(title) => {
-            let title = title.parse()?;
-            eframe::run_native(
-                "ikiru",
-                options,
-                Box::new(move |cc| Box::new(App::new_load_title(cc, instance, title).unwrap())),
-            )
-            .unwrap()
-        }
-        None => eframe::run_native(
-            "ikiru",
-            options,
-            Box::new(|cc| Box::new(App::new(cc, instance).unwrap())),
-        )
-        .unwrap(),
-    })
+    eframe::run_native("ikiru", options, Box::new(app_creator))
 }

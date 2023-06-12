@@ -34,7 +34,7 @@ impl Serialize for Registers {
     fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeSeq;
 
-        let mut seq = ser.serialize_seq(Some(todo!("estimate count")))?;
+        let mut seq = ser.serialize_seq(None)?;
         for val in self.serialize() {
             seq.serialize_element(&val)?;
         }
