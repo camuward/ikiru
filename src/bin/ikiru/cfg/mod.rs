@@ -6,8 +6,8 @@ use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
 // use self::profile::Profile;
-use ikiru::util::graphic_pack::cfg::GraphicPackCfg;
-use ikiru::util::TitleId;
+use ikiru::misc::graphic_pack::cfg::GraphicPackCfg;
+use ikiru::misc::TitleId;
 
 // pub mod input;
 // pub mod profile;

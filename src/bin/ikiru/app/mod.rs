@@ -7,13 +7,18 @@ use crate::gfx;
 use crate::util::TitleId;
 
 pub mod cfg;
-pub mod emu;
-pub mod hub;
+
+pub mod win {
+    pub mod emu;
+    pub mod hub;
+}
 // pub mod misc;
 
 pub struct App {
     rt: Runtime,
     app: Instance,
+
+    // windows
     hub: hub::Window,
     emu: Vec<emu::Window>,
 }

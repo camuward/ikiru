@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 
 mod derive_reg;
+mod tests;
 
 #[proc_macro_derive(Reg, attributes(reg))]
 pub fn register_derive(input: TokenStream) -> TokenStream {
