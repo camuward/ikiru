@@ -1,4 +1,4 @@
-use crate::util::TitleId;
+use ikiru::misc::TitleId;
 
 pub struct Window {
     state: HubWindowState,

@@ -6,7 +6,7 @@ use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
 use crate::cfg::{Profile, Cfg};
-use crate::util::TitleId;
+use ikiru::misc::TitleId;
 
 pub mod input;
 
@@ -33,11 +33,16 @@ impl GameCfg {
     pub fn add_profile(&mut self, cfg: Profile) {
         let index = self.all.len();
         self.all.push(cfg);
-        self.active.insert(title, index);
+        if self.active.get(&cfg.title).is_none() {
+            self.active.insert(cfg.title, index);
+        }
     }
 
-    pub fn set_active(&mut self, cfg: Profile) {
-        self.active.insert(title, index);
+    /// Set the active profile for a title. If `profile` is `None`, the default
+    /// profile is used.
+    pub fn set_active(&mut self, title: TitleId, profile: Option<String>) {
+        let needle = profile.as_deref().unwrap_or("default");
+        // self.active.insert(title, );
     }
 
     pub fn get_cfg(&self, title: TitleId) -> &Profile {

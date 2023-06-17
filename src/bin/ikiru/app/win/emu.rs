@@ -3,11 +3,10 @@ use std::thread::JoinHandle;
 
 // use crate::cfg::Cfg;
 use ikiru::emu::Emulator;
-// use crate::util::TitleId;
-// use crate::util::TitleId;
+// use ikiru::misc::TitleId;
+// use ikiru::misc::TitleId;
 
 /// A running emulator instance.
-#[derive(Debug)]
 pub struct Window {
     /// Window ID. Used to persist window state between frames.
     id: uuid::Uuid,
@@ -19,10 +18,9 @@ impl Window {
     fn egui_window(&self) -> egui::Window {
         egui::Window::new("ikiru")
             .id(egui::Id::new(self.id))
-            .scroll(true)
             .resizable(true)
             .collapsible(false)
-            .title_bar(false)
+            .title_bar(true)
             .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
     }
 

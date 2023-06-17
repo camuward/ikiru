@@ -11,11 +11,11 @@ fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     tracing_subscriber::fmt::init();
 
-    let instance = read_cfg(&cli)?;
+    let inst = read_cfg(&cli)?;
 
     match cli.subcmd {
-        Some(subcmd) => subcmd.exec(&cli, instance)?,
-        None => start_eframe(|cc| Box::new(App::new(cc, instance).unwrap())).unwrap(),
+        Some(subcmd) => subcmd.exec(&cli, inst)?,
+        None => start_eframe(|cc| Box::new(App::new(cc, inst).unwrap())).unwrap(),
     }
 
     Ok(())
