@@ -1,12 +1,20 @@
+use std::fmt::Display;
 use std::ops::Range;
 
 use proc_macro2::{Ident, Span, TokenStream};
+use syn::spanned::Spanned;
 use syn::{Error, MetaNameValue, Result};
 
+pub fn mk_err<T>(span: &(impl Clone + quote::ToTokens), msg: impl Display) -> Result<T> {
+    Err(Error::new_spanned(span.clone(), msg))
+}
+
+/// Whether the [`syn::Path`] is equal to the given identifier.
 pub fn path_is(path: &syn::Path, ident: &str) -> bool {
     path.segments.len() == 1 && path.segments[0].ident == ident
 }
 
+/// Gets the types of all fields of a register struct.
 pub fn field_types(fields: &syn::Fields) -> Result<Vec<Ident>> {
     fn field_ty(field: &syn::Field) -> Result<Ident> {
         match &field.ty {
@@ -31,6 +39,16 @@ pub fn parse_index_and_width<'a>(
 ) -> Result<Range<u32>> {
     use syn::punctuated::Punctuated;
     use syn::{Attribute, Meta::List, MetaList, MetaNameValue, Path, Token};
+
+    const DUPLICATE_WIDTH: &str = "duplicate `#[reg(width = ...)]` attribute";
+    const INVALID_WIDTH: &str = r#"expected `#[reg(width = "n")]` where 1 <= n <= 32"#;
+    const DUPLICATE_IDX: &str = "duplicate `#[reg(index = ...)]` attribute";
+    const INVALID_RANGE: &str = r#"expected `#[reg(index = "i..j")]`"#;
+    const END_BEFORE_START: &str = r#"expected `i < j` in `#[reg(index = "i..j")]`"#;
+    const IDX_RANGE_WIDTH: &str =
+        "cannot specify both `#[reg(index = ...)]` and `#[reg(width = ...)]`";
+    const INVALID_IDX: &str = r#"expected `#[reg(index = "i")]` or `#[reg(index = "i..j")]`"#;
+    const INVALID_ATTR: &str = "expected `#[reg(index = ...)]` or `#[reg(width = ...)]`";
 
     let mut attrs = attrs.into_iter();
 
@@ -64,89 +82,83 @@ pub fn parse_index_and_width<'a>(
 
     let mut _overlap = 0u32; // TODO: check for overlap between fields
     let (mut idx, mut wid) = (None, None); // ensure no duplicate attributes
-    for MetaNameValue {
-        path, value, ..
-    } in kv_pairs
-    {
+    for MetaNameValue { path, value, .. } in kv_pairs {
         use syn::{Expr, ExprLit, Lit::Int};
 
         // if the attribute is `#[reg(width = "n")]`
         if path_is(&path, "width") {
             match wid {
-                Some(_) => Err(Error::new_spanned(
-                    path,
-                    "duplicate `#[reg(width = ...)]` attribute",
-                )),
+                Some(_) => mk_err(&path, DUPLICATE_WIDTH),
                 None => match value {
                     Expr::Lit(ExprLit { lit: Int(int), .. }) => {
                         wid.replace(int.base10_parse()?);
                         Ok(())
                     }
-                    _ => Err(Error::new_spanned(
-                        value,
-                        r#"expected `#[reg(width = "n")]` where 1 <= n <= 32"#,
-                    )),
+                    _ => mk_err(&value, INVALID_WIDTH),
                 },
             }
         // if the attribute is `#[reg(index = "i")]` or `#[reg(index = "i..j")]`
         } else if path_is(&path, "index") {
             match idx {
-                Some(_) => Err(Error::new_spanned(
-                    path,
-                    "duplicate `#[reg(index = ...)]` attribute",
-                )),
+                Some(_) => mk_err(&path, DUPLICATE_IDX),
                 None => match value {
                     // `#[reg(index = "i")]`
-                    Expr::Lit(ExprLit { lit: Int(int), .. }) => {
+                    Expr::Lit(ExprLit {
+                        lit: Int(ref int), ..
+                    }) => {
                         idx.replace(int.base10_parse()?);
                         Ok(())
                     }
                     // `#[reg(index = "i..j")]`
-                    Expr::Range(range) => {
-                        let msg = r#"expected `#[reg(index = "i..j")]`"#;
-                        let err = || Error::new_spanned(value, msg);
-
+                    Expr::Range(ref range) => {
+                        // range must be half-open
                         let (start, end) = match range.limits {
                             syn::RangeLimits::HalfOpen(..) => {
                                 let get_lit = |expr: &Option<Box<Expr>>| match expr.as_deref() {
                                     Some(Expr::Lit(ExprLit { lit: Int(int), .. })) => {
                                         Ok(int.base10_parse::<u32>()?)
                                     }
-                                    _ => Err(err()),
+                                    _ => mk_err(&value, INVALID_RANGE),
                                 };
 
                                 Ok((get_lit(&range.start)?, get_lit(&range.end)?))
                             }
-                            _ => Err(err()),
+                            _ => mk_err(&value, INVALID_RANGE),
                         }?;
 
                         if start >= end {
-                            return Err(Error::new_spanned(
-                                value,
-                                r#"expected `i < j` in `#[reg(index = "i..j")]`"#,
-                            ));
+                            return mk_err(&value, END_BEFORE_START);
                         }
 
-                        wid.replace(end - start).map_or(Ok(()), |_| {
-                            Err(Error::new_spanned(
-                            value,
-                            "cannot specify both `#[reg(index = ...)]` and `#[reg(width = ...)]`",
-                        ))
-                        })?;
-
-                        Ok(())
+                        match wid.replace(end - start) {
+                            Some(_) => mk_err(&value, IDX_RANGE_WIDTH),
+                            None => {
+                                idx.replace(start);
+                                Ok(())
+                            }
+                        }
                     }
-                    _ => Err(Error::new_spanned(
-                        value,
-                        r#"expected `#[reg(index = "i")]` or `#[reg(index = "i..j")]`"#,
-                    )),
+                    _ => mk_err(&value, INVALID_IDX),
                 },
+            }?;
+
+            if wid.is_some_and(|wid| wid > ty.width()) {
+                return mk_err(
+                    &value,
+                    format!("width {} exceeds {}", wid.unwrap(), ty.width()),
+                );
             }
+
+            if let Some(end @ 33..) = idx.zip(wid).map(|(idx, wid)| idx + wid) {
+                return mk_err(
+                    &value,
+                    format!("range {}..{end} exceeds 0..32", idx.unwrap()),
+                );
+            }
+
+            Ok(())
         } else {
-            Err(Error::new_spanned(
-                path,
-                "expected `#[reg(index = ...)]` or `#[reg(width = ...)]`",
-            ))
+            mk_err(&path, INVALID_ATTR)
         }?
     }
 
@@ -155,21 +167,6 @@ pub fn parse_index_and_width<'a>(
     *index += wid;
 
     Ok(idx..idx + wid)
-}
-
-#[derive(Error)]
-enum CErr {
-    #[error("expected `#[reg(index = ...)]` or `#[reg(width = ...)]`")]
-    InvalidAttribute(Box<dyn quote::ToTokens>),
-}
-
-impl Into<syn::Error> for CErr {
-    fn into(self) -> syn::Error {
-        match self {
-            CErr::InvalidAttribute(b) => syn::Error::new_spanned(b, self),
-        }
-        
-    }
 }
 
 pub fn register_derive(ast: syn::DeriveInput) -> Result<TokenStream> {
@@ -186,34 +183,28 @@ pub fn register_derive(ast: syn::DeriveInput) -> Result<TokenStream> {
 
     // iterate over the fields, collecting the field names and their bitmasks
     let mut index: u32 = 0;
-    // let mut overlap: u32 = 0;
+    let mut overlap: u32 = 0;
     let mut f_ident: Vec<&Ident> = vec![];
-    let mut f_index: Vec<usize> = Vec::new();
-    let mut f_width: Vec<usize> = Vec::new();
+    let mut f_index: Vec<u32> = Vec::new();
+    let mut f_width: Vec<u32> = Vec::new();
 
     for (syn::Field { attrs, ident, .. }, ty) in fields.iter().zip(&f_ty) {
-        let (idx, wid) = parse_index_and_width(&mut index, ty, attrs)?;
+        let range = parse_index_and_width(&mut index, RegTy::try_from(ty)?, attrs)?;
+        let index = range.start;
+        let width = range.end - range.start;
 
-        let width = wid.unwrap_or(RegTy::try_from(ty)?.width());
+        f_index.push(index);
+        f_width.push(width);
 
-        // let type_width = || match ty {
-        //     _ => todo!(),
-        // };
-
-        // enum Attrs {
-        //     /// `#[reg(index = 0)]`
-        //     Index(u32),
-        //     /// `#[reg(index = 0..6)]`
-        //     /// `#[reg(index = 0, width = 6)]`
-        //     IndexWidth(u32, u32),
-        //     /// `#[reg(width = 6)]`
-        //     Width(u32),
-        // }
-
-        // let attrs = todo!();
-        // let (index, width) = match attrs {
-        //     Attrs::Index(idx) => (idx, type_width(ty)),
-        // }
+        let mask = ((1u32 << width) - 1) << index;
+        if overlap & mask != 0 {
+            return Err(Error::new_spanned(
+                fields,
+                "fields must not overlap in the register",
+            ));
+        } else {
+            overlap |= mask;
+        }
 
         match ident {
             Some(ident) => f_ident.push(ident),
@@ -232,13 +223,14 @@ pub fn register_derive(ast: syn::DeriveInput) -> Result<TokenStream> {
     Ok(quote::quote! {
         impl #name {
             #(
-                #[doc = concat!("Set the value of `", stringify!(#f_ident), "`")]
+                #[doc = concat!("Set the value of `", stringify!(#f_ident), "`.")]
                 pub fn #setter (&mut self, value: #f_ty) {
                     assert!(value < (1 << #f_width));  // Ensure value fits within width
                     self.#f_ident &= (1 << #f_width) - 1;  // Clear the bits
                     self.#f_ident |= value;
                 }
 
+                #[doc = concat!("Get the value of `", stringify!(#f_ident), "`.")]
                 pub fn #getter (&self) -> #f_ty {
                     let mask = (1 << #f_width) - 1;
                     self.#f_ident & mask
@@ -273,7 +265,7 @@ struct Reg {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RegTy {
+pub enum RegTy {
     Bool,
     U8,
     U16,
@@ -298,8 +290,8 @@ impl RegTy {
 impl TryFrom<&Ident> for RegTy {
     type Error = Error;
 
-    fn try_from(value: &Ident) -> std::result::Result<Self, Self::Error> {
-        match value.to_string().as_str() {
+    fn try_from(ident: &Ident) -> std::result::Result<Self, Self::Error> {
+        match ident.to_string().as_str() {
             "bool" => Ok(RegTy::Bool),
             "u8" => Ok(RegTy::U8),
             "u16" => Ok(RegTy::U16),
@@ -308,7 +300,7 @@ impl TryFrom<&Ident> for RegTy {
             "i16" => Ok(RegTy::I16),
             "i32" => Ok(RegTy::I32),
             _ => Err(syn::Error::new_spanned(
-                value,
+                ident,
                 "expected bool/u8/u16/u32/i8/i16/i32",
             )),
         }
