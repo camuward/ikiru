@@ -8,6 +8,8 @@ use ikiru::misc::TitleId;
 pub mod cfg;
 
 pub mod win {
+    pub(self) mod title_bar;
+
     pub mod emu;
     pub mod hub;
 }
@@ -43,7 +45,7 @@ impl App {
     /// Stop`.
     pub fn new_load_title(
         cc: &eframe::CreationContext<'_>,
-        app: cfg::Instance,
+        mut app: cfg::Instance,
         title: TitleId,
     ) -> eyre::Result<Self> {
         let _cfg = app.game_cfgs.get_cfg(title);
@@ -65,7 +67,7 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        self.hub.show(ctx);
+        self.hub.show(&mut self.app, ctx, frame);
 
         for emu in &mut self.emu {
             emu.show(ctx);

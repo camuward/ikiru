@@ -1,10 +1,25 @@
-use clap::Parser;
-use cli::Cli;
+#![allow(unused)]
 
-mod app;
-mod cfg;
-mod cli;
-mod gfx;
+#[macro_use]
+extern crate eyre;
+
+#[macro_use]
+extern crate tracing;
+
+use std::fs::File;
+use std::path::PathBuf;
+
+use clap::Parser;
+use eyre::Context;
+
+use self::app::{cfg::Instance, App};
+use self::cfg::CfgError;
+use self::cli::{Cli, CliError};
+
+pub mod app;
+pub mod cfg;
+pub mod cli;
+pub mod gfx;
 
 fn main() -> color_eyre::Result<()> {
     let cli = Cli::parse();
@@ -13,48 +28,62 @@ fn main() -> color_eyre::Result<()> {
 
     let inst = read_cfg(&cli)?;
 
-    match cli.subcmd {
+    match &cli.subcmd {
         Some(subcmd) => subcmd.exec(&cli, inst)?,
-        None => start_eframe(|cc| Box::new(App::new(cc, inst).unwrap())).unwrap(),
+        None => start(|cc| App::new(cc, inst).unwrap()).unwrap(),
     }
 
     Ok(())
 }
 
-#[tracing::instrument(ret(level = Level::DEBUG))]
-pub fn read_cfg(cli: &Cli) -> eyre::Result<Instance> {
-    let cfg_dir = tracing::debug_span!("find_cfg_dir").in_scope(|| {
-        let default_dir = || dirs::config_dir().map(|path| path.join("ikiru"));
+#[instrument(ret(level = tracing::Level::DEBUG))]
+fn read_cfg(cli: &Cli) -> eyre::Result<Instance> {
+    let cfg_dir: PathBuf = {
+        let _e = debug_span!("find_cfg_dir").entered();
 
-        match self.cfg_dir.clone().or_else(default_dir) {
-            None => eyre::bail!(CliError::CfgDirNotFound),
+        // get the default config dir, or use the one specified by the user
+        let get_default_dir = || dirs::config_dir().map(|path| path.join("ikiru"));
+        let path = cli.cfg_dir.clone().or_else(get_default_dir);
+
+        match path {
+            None => bail!(CliError::CfgDirNotFound),
             Some(dir) if !dir.try_exists()? => {
-                tracing::debug_span!("create_cfg_dir", dir = ?dir)
-                    .in_scope(|| std::fs::create_dir_all(&dir))?;
+                let _e = debug_span!("create_cfg_dir", dir = ?dir).entered();
+                std::fs::create_dir_all(&dir)?;
 
-                Ok(dir)
+                dir
             }
-            Some(dir) if !dir.is_dir() => eyre::bail!(CliError::CfgDirNotDir(dir)),
-            Some(dir) => Ok(dir),
+            Some(dir) if !dir.is_dir() => bail!(CliError::CfgDirNotDir(dir)),
+            Some(dir) => dir,
         }
-    });
+    };
 
-    let cfg_file = File::open(cfg_dir.join("config.toml"))?;
-    let buf = std::io::read_to_string(cfg_file)?;
+    let cfg_file: PathBuf = {
+        let path = cfg_dir.join("config.toml");
+        if !path.try_exists()? {
+            let _e = debug_span!("create_cfg_file", file = ?path).entered();
+            let doc = toml_edit::Document::default();
+            std::fs::write(&path, doc.to_string())?;
+        }
+        path
+    };
+
+    let buf = std::fs::read_to_string(&cfg_file)?;
 
     Ok(Instance {
         cfg_dir,
-        cfg_file,
-        cfg: toml_edit::de::from_str(&buf)?,
+        cfg_file: File::options().read(true).write(true).open(&cfg_file)?,
+        cfg: toml_edit::de::from_str(&buf).map_err(|e| CfgError::Parse(e, cfg_file))?,
 
         game_cfgs: Default::default(),
     })
 }
 
 /// Run the [`App`](app::App).
-fn start_eframe<F>(app_creator: F) -> Result<(), eframe::Error>
+fn start<F, A>(app_creator: F) -> Result<(), eframe::Error>
 where
-    F: FnOnce(&eframe::CreationContext) -> Box<dyn eframe::App> + 'static,
+    F: FnOnce(&eframe::CreationContext) -> A + 'static,
+    A: eframe::App + 'static,
 {
     let options = eframe::NativeOptions {
         decorated: false,
@@ -64,5 +93,5 @@ where
         ..Default::default()
     };
 
-    eframe::run_native("ikiru", options, Box::new(app_creator))
+    eframe::run_native("ikiru", options, Box::new(|cc| Box::new(app_creator(cc))))
 }

@@ -12,8 +12,8 @@ use winit::{
     window::WindowBuilder,
 };
 
-use crate::app::emu;
-use crate::emu::{EmuParams, Emulator};
+use crate::app::win::emu;
+use ikiru::emu::{EmuParams, Emulator};
 
 /// Creates the emulation window.
 pub fn spawn(params: EmuParams) -> eyre::Result<emu::Window> {
@@ -23,13 +23,21 @@ pub fn spawn(params: EmuParams) -> eyre::Result<emu::Window> {
 
     // spawn a thread to run the vulkan event loop
     let thread = thread::spawn({
-        let _emu = Arc::clone(&emu);
+        let emu = Arc::clone(&emu);
         let tx = Cell::new(Some(tx));
 
         move || {
             let catch_err = || -> eyre::Result<()> {
+                use ikiru::{VER_MAJOR, VER_MINOR, VER_PATCH};
+
                 // create info for vulkan instance
-                let app_info = vk_app_info();
+                let app_info = vk::ApplicationInfo::builder()
+                    .application_name(CString::new(env!("CARGO_PKG_NAME")).unwrap().as_c_str())
+                    .application_version(vk::make_api_version(0, VER_MAJOR, VER_MINOR, VER_PATCH))
+                    .engine_name(CString::new("No Engine").unwrap().as_c_str())
+                    .engine_version(vk::make_api_version(0, 1, 0, 0))
+                    .api_version(vk::make_api_version(0, 1, 0, 0))
+                    .build();
                 let info = vk::InstanceCreateInfo::builder().application_info(&app_info);
 
                 // load vulkan and create instance
@@ -79,18 +87,6 @@ pub fn spawn(params: EmuParams) -> eyre::Result<emu::Window> {
             thread.join().unwrap_err();
             Err(e)
         }
-        Ok(()) => Ok(emu::Window { thread, emu }),
+        Ok(()) => Ok(emu::Window { id: uuid::Uuid::new_v4(), thread, emu }),
     }
-}
-
-fn vk_app_info() -> vk::ApplicationInfo {
-    use crate::{VER_MAJOR, VER_MINOR, VER_PATCH};
-
-    vk::ApplicationInfo::builder()
-        .application_name(CString::new(env!("CARGO_PKG_NAME")).unwrap().as_c_str())
-        .application_version(vk::make_api_version(0, VER_MAJOR, VER_MINOR, VER_PATCH))
-        .engine_name(CString::new("No Engine").unwrap().as_c_str())
-        .engine_version(vk::make_api_version(0, 1, 0, 0))
-        .api_version(vk::make_api_version(0, 1, 0, 0))
-        .build()
 }

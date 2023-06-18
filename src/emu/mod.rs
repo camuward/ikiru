@@ -33,7 +33,7 @@ pub struct EmuParams {
 impl Emulator {
     /// Begin emulating the provided title ID. Extracts the configuration from
     /// the provided application context.
-    pub fn start(params: EmuParams) -> Self {
+    pub fn start(_params: EmuParams) -> Self {
         Self {
             state: Mutex::new(EmuState::Paused {
                 total: Duration::ZERO,
@@ -43,11 +43,13 @@ impl Emulator {
     }
 
     pub fn pause(&self) {
-        self.state.lock().unwrap().pause();
+        let now = Instant::now();
+        self.state.lock().unwrap().pause(now);
     }
 
     pub fn unpause(&self) {
-        self.state.lock().unwrap().unpause();
+        let now = Instant::now();
+        self.state.lock().unwrap().unpause(now);
     }
 
     pub fn uptime(&self) -> Duration {
@@ -71,21 +73,18 @@ enum EmuState {
 }
 
 impl EmuState {
-    fn pause(&mut self) {
-        if let Self::Running { unpause, total } = self {
-            let time_since_unpause = unpause.elapsed();
-            let total = *total + time_since_unpause;
+    fn pause(&mut self, paused_at: Instant) {
+        if let Self::Running { unpause, total } = *self {
+            let time_since_unpause = paused_at.saturating_duration_since(unpause);
+            let total = total + time_since_unpause;
 
             *self = Self::Paused { total };
         }
     }
 
-    fn unpause(&mut self) {
+    fn unpause(&mut self, unpause: Instant) {
         if let &mut Self::Paused { total } = self {
-            *self = Self::Running {
-                unpause: Instant::now(),
-                total,
-            }
+            *self = Self::Running { unpause, total }
         }
     }
 

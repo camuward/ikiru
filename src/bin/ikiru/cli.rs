@@ -1,17 +1,15 @@
 //! Command-line configuration.
-use std::fs::File;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use thiserror::Error;
-use tracing::Level;
 
 use crate::app::cfg::Instance;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
     #[clap(short, long, env = "IKIRU_CFG_DIR")]
-    cfg_dir: Option<PathBuf>,
+    pub cfg_dir: Option<PathBuf>,
 
     /// Add folders to the search path
     #[clap(short, long)]

@@ -29,12 +29,14 @@ oneshot = "0.1.5"
 pkg-version = "1.0.0"
 serde = { version = "1.0.163", features = ["derive"] }
 smallvec = "1.10.0"
+strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.40"
+thread_local = "1.1.7"
 tokio = { version = "1.28.2", features = ["full"] }
 toml_edit = { version = "0.19.10", features = ["serde"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
-uuid = { version = "1.3.3", features = ["serde"] }
+uuid = { version = "1.3.3", features = ["serde", "fast-rng", "v4"] }
 winit = "0.28.6"
 
 [dependencies.gilrs]
@@ -45,5 +47,5 @@ features = ["xinput", "serde", "serde-serialize"]
 [dependencies.ikiru-macro]
 path = "macro"
 
-[profile.dev.package.backtrace]
-opt-level = 3
+[dev-dependencies.ikiru-macro]
+path = "macro"

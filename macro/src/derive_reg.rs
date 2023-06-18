@@ -1,21 +1,20 @@
 use std::fmt::Display;
 use std::ops::Range;
 
-use proc_macro2::{Ident, Span, TokenStream};
-use syn::spanned::Spanned;
-use syn::{Error, MetaNameValue, Result};
+use proc_macro2::{Ident, TokenStream};
+use syn::{Error, Result};
 
-pub fn mk_err<T>(span: &(impl Clone + quote::ToTokens), msg: impl Display) -> Result<T> {
+fn mk_err<T>(span: &(impl Clone + quote::ToTokens), msg: impl Display) -> Result<T> {
     Err(Error::new_spanned(span.clone(), msg))
 }
 
 /// Whether the [`syn::Path`] is equal to the given identifier.
-pub fn path_is(path: &syn::Path, ident: &str) -> bool {
+fn path_is(path: &syn::Path, ident: &str) -> bool {
     path.segments.len() == 1 && path.segments[0].ident == ident
 }
 
 /// Gets the types of all fields of a register struct.
-pub fn field_types(fields: &syn::Fields) -> Result<Vec<Ident>> {
+fn field_types(fields: &syn::Fields) -> Result<Vec<Ident>> {
     fn field_ty(field: &syn::Field) -> Result<Ident> {
         match &field.ty {
             syn::Type::Path(p) if p.path.segments.len() == 1 => {
@@ -32,13 +31,13 @@ pub fn field_types(fields: &syn::Fields) -> Result<Vec<Ident>> {
 }
 
 // Parses the `key = "value"` pairs from `#[reg(...)]` attributes.
-pub fn parse_index_and_width<'a>(
+fn parse_index_and_width<'a>(
     index: &mut u32,
     ty: RegTy,
     attrs: impl IntoIterator<Item = &'a syn::Attribute>,
 ) -> Result<Range<u32>> {
     use syn::punctuated::Punctuated;
-    use syn::{Attribute, Meta::List, MetaList, MetaNameValue, Path, Token};
+    use syn::{Attribute, Meta::List, MetaList, MetaNameValue, Token};
 
     const DUPLICATE_WIDTH: &str = "duplicate `#[reg(width = ...)]` attribute";
     const INVALID_WIDTH: &str = r#"expected `#[reg(width = "n")]` where 1 <= n <= 32"#;
@@ -169,15 +168,13 @@ pub fn parse_index_and_width<'a>(
     Ok(idx..idx + wid)
 }
 
-pub fn register_derive(ast: syn::DeriveInput) -> Result<TokenStream> {
-    use syn::{Data::Struct, DataStruct};
-
+pub fn func(ast: syn::DeriveInput) -> Result<TokenStream> {
     let name = &ast.ident;
 
     let fields = match &ast.data {
-        Struct(DataStruct { fields, .. }) => fields,
-        _ => return Err(Error::new_spanned(ast, "expected a struct")),
-    };
+        syn::Data::Struct(syn::DataStruct { fields, .. }) => Ok(fields),
+        _ => Err(Error::new_spanned(&ast, "expected a struct")),
+    }?;
 
     let f_ty = field_types(fields)?;
 
@@ -198,23 +195,21 @@ pub fn register_derive(ast: syn::DeriveInput) -> Result<TokenStream> {
 
         let mask = ((1u32 << width) - 1) << index;
         if overlap & mask != 0 {
-            return Err(Error::new_spanned(
+            Err(Error::new_spanned(
                 fields,
                 "fields must not overlap in the register",
-            ));
+            ))
         } else {
             overlap |= mask;
-        }
 
-        match ident {
-            Some(ident) => f_ident.push(ident),
-            None => {
-                return Err(Error::new_spanned(
+            match ident {
+                Some(ident) => Ok(f_ident.push(ident)),
+                None => Err(Error::new_spanned(
                     fields,
                     "expected a struct with named fields",
-                ));
+                )),
             }
-        }
+        }?;
     }
 
     let getter: Vec<_> = f_ident.iter().map(|field| format!("get_{field}")).collect();
@@ -256,13 +251,13 @@ pub fn register_derive(ast: syn::DeriveInput) -> Result<TokenStream> {
     })
 }
 
-#[derive(Debug)]
-struct Reg {
-    pub name: Ident,
-    pub ty: RegTy,
-    pub index: usize,
-    pub width: usize,
-}
+// #[derive(Debug)]
+// struct Reg {
+//     pub name: Ident,
+//     pub ty: RegTy,
+//     pub index: usize,
+//     pub width: usize,
+// }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegTy {

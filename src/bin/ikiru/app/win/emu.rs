@@ -9,7 +9,7 @@ use ikiru::emu::Emulator;
 /// A running emulator instance.
 pub struct Window {
     /// Window ID. Used to persist window state between frames.
-    id: uuid::Uuid,
+    pub id: uuid::Uuid,
     pub thread: JoinHandle<()>,
     pub emu: Arc<Emulator>,
 }
