@@ -1,5 +1,5 @@
 //! # ikiru - wii u emulator
-#![allow(dead_code)]
+#![allow(unused)]
 
 pub mod emu;
 pub mod misc;

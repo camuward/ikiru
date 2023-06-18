@@ -33,7 +33,7 @@ fn main() -> color_eyre::Result<()> {
     let mut inst = Instance::try_from(&cli)?;
 
     // grab a handle to the config file
-    let cfg_file = File::options()
+    let mut cfg_file = File::options()
         .read(true)
         .write(true)
         .open(&inst.cfg_file)?;
@@ -48,10 +48,8 @@ fn main() -> color_eyre::Result<()> {
             let inst = rx.recv().unwrap();
 
             // write the updated config
-            // std::fs::write(
-            //     inst.cfg_file,
-            //     toml_edit::ser::to_string_pretty(&inst.borrow().cfg)?,
-            // )?;
+            cfg_file.set_len(0);
+            cfg_file.write_all(toml_edit::ser::to_string_pretty(&inst.cfg)?.as_bytes())?;
         }
     }
 

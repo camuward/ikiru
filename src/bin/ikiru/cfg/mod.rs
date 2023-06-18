@@ -54,6 +54,6 @@ pub enum HubLayout {
 
 #[derive(Debug, Error)]
 pub enum CfgError {
-    #[error("failed to parse config file ({1})\n{0:?}")]
+    #[error("failed to parse config file ({1})\n{0}")]
     Parse(toml_edit::de::Error, PathBuf),
 }
