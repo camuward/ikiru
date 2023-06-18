@@ -18,6 +18,7 @@ pub mod win {
 pub struct App {
     rt: Runtime,
     app: cfg::Instance,
+    drop_tx: Option<oneshot::Sender<cfg::Instance>>,
 
     // windows
     hub: win::hub::Window,
@@ -26,13 +27,21 @@ pub struct App {
 
 impl App {
     /// Create a new instance, opening the hub window without starting any games.
-    pub fn new(cc: &eframe::CreationContext<'_>, app: cfg::Instance) -> eyre::Result<Self> {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        app: cfg::Instance,
+        drop_tx: oneshot::Sender<cfg::Instance>,
+    ) -> eyre::Result<Self> {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_visuals.
         // Restore app state using cc.storage (requires the "persistence" feature).
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
+        Self::set_fonts(&cc.egui_ctx);
+
         Ok(Self {
             app,
+            drop_tx: Some(drop_tx),
+
             rt: Runtime::new()?,
             // cfg: cfg::Cfg::load(Path::new("cfg.toml")),
             hub: win::hub::Window::new_open(),
@@ -47,11 +56,16 @@ impl App {
         cc: &eframe::CreationContext<'_>,
         mut app: cfg::Instance,
         title: TitleId,
+        drop_tx: oneshot::Sender<cfg::Instance>,
     ) -> eyre::Result<Self> {
         let _cfg = app.game_cfgs.get_cfg(title);
 
+        Self::set_fonts(&cc.egui_ctx);
+
         Ok(Self {
             app,
+            drop_tx: Some(drop_tx),
+
             rt: Runtime::new()?,
             // cfg: cfg::Cfg::load(Path::new("cfg.toml")),
             hub: win::hub::Window::new_closed(),
@@ -63,6 +77,48 @@ impl App {
             })?],
         })
     }
+
+    fn set_fonts(egui_ctx: &egui::Context) {
+        use egui::{FontData, FontDefinitions, FontFamily};
+
+        let mut fonts = FontDefinitions::default();
+
+        #[cfg(windows)]
+        if let Ok(data) = std::fs::read("C:\\WINDOWS\\FONTS\\SEGOEUI.TTF") {
+            fonts
+                .font_data
+                .insert("Segoe UI".to_owned(), FontData::from_owned(data));
+            fonts
+                .families
+                .get_mut(&FontFamily::Proportional)
+                .unwrap()
+                .insert(0, "Segoe UI".to_owned());
+            fonts
+                .families
+                .get_mut(&FontFamily::Monospace)
+                .unwrap()
+                .push("Segoe UI".to_owned());
+        }
+
+        #[cfg(target_os = "macos")]
+        if let Ok(data) = std::fs::read("/System/Library/Fonts/SFNSText.ttf") {
+            fonts
+                .font_data
+                .insert("SFNSText".to_owned(), FontData::from_owned(data));
+            fonts
+                .families
+                .get_mut(&FontFamily::Proportional)
+                .unwrap()
+                .insert(0, "SFNSText".to_owned());
+            fonts
+                .families
+                .get_mut(&FontFamily::Monospace)
+                .unwrap()
+                .push("SFNSText".to_owned());
+        }
+
+        egui_ctx.set_fonts(fonts);
+    }
 }
 
 impl eframe::App for App {
@@ -72,5 +128,9 @@ impl eframe::App for App {
         for emu in &mut self.emu {
             emu.show(ctx);
         }
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.drop_tx.take().unwrap().send(self.app.clone()).unwrap();
     }
 }

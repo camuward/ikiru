@@ -12,15 +12,19 @@ pub struct Window {
     pub id: uuid::Uuid,
     pub thread: JoinHandle<()>,
     pub emu: Arc<Emulator>,
+    pub show_title_bar: bool,
 }
 
 impl Window {
     fn egui_window(&self) -> egui::Window {
-        egui::Window::new("ikiru")
+        let time = humantime::format_duration(self.emu.uptime());
+        let title = format!("ikiru - {time}");
+
+        egui::Window::new(title)
             .id(egui::Id::new(self.id))
+            .title_bar(self.show_title_bar)
             .resizable(true)
             .collapsible(false)
-            .title_bar(true)
             .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
     }
 

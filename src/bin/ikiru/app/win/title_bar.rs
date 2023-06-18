@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use crate::app::cfg::Instance;
-use crate::cfg::HubViewMode;
+use crate::cfg::HubLayout;
 
 use eframe::Frame;
 use egui::{Align, Button, Context, Id, Layout, RichText, Sense};

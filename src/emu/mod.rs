@@ -13,6 +13,7 @@ pub mod instance;
 
 /// A running emulator instance.
 pub struct Emulator {
+    title: TitleId,
     state: Mutex<EmuState>,
     instance: instance::Instance,
 }
@@ -33,8 +34,9 @@ pub struct EmuParams {
 impl Emulator {
     /// Begin emulating the provided title ID. Extracts the configuration from
     /// the provided application context.
-    pub fn start(_params: EmuParams) -> Self {
+    pub fn start(params: EmuParams) -> Self {
         Self {
+            title: params.title,
             state: Mutex::new(EmuState::Paused {
                 total: Duration::ZERO,
             }),
