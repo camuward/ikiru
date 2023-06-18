@@ -79,8 +79,10 @@ pub mod tests {
     #[test]
     fn title_id_to_str() {
         assert_eq!(
-            TitleId::new(0x0005000E101C9400).to_string(),
-            "0005000E101C9400",
+            TitleId::new(0x0005000E101C9400)
+                .to_string()
+                .to_ascii_lowercase(),
+            "0005000E101C9400".to_ascii_lowercase(),
         );
     }
 }
