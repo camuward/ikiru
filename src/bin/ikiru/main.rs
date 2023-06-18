@@ -30,7 +30,7 @@ fn main() -> color_eyre::Result<()> {
     tracing_subscriber::fmt::init();
 
     // read the config
-    let mut inst = Instance::try_from(&cli)?;
+    let mut inst = Box::new(Instance::try_from(&cli)?);
 
     // grab a handle to the config file
     let mut cfg_file = File::options()

@@ -17,8 +17,8 @@ pub mod win {
 
 pub struct App {
     rt: Runtime,
-    app: cfg::Instance,
-    drop_tx: Option<oneshot::Sender<cfg::Instance>>,
+    app: Box<cfg::Instance>,
+    drop_tx: Option<oneshot::Sender<Box<cfg::Instance>>>,
 
     // windows
     hub: win::hub::Window,
@@ -29,8 +29,8 @@ impl App {
     /// Create a new instance, opening the hub window without starting any games.
     pub fn new(
         cc: &eframe::CreationContext<'_>,
-        app: cfg::Instance,
-        drop_tx: oneshot::Sender<cfg::Instance>,
+        app: Box<cfg::Instance>,
+        drop_tx: oneshot::Sender<Box<cfg::Instance>>,
     ) -> eyre::Result<Self> {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_visuals.
         // Restore app state using cc.storage (requires the "persistence" feature).
@@ -54,9 +54,9 @@ impl App {
     /// Stop`.
     pub fn new_load_title(
         cc: &eframe::CreationContext<'_>,
-        mut app: cfg::Instance,
+        mut app: Box<cfg::Instance>,
         title: TitleId,
-        drop_tx: oneshot::Sender<cfg::Instance>,
+        drop_tx: oneshot::Sender<Box<cfg::Instance>>,
     ) -> eyre::Result<Self> {
         let _cfg = app.game_cfgs.get_cfg(title);
 
@@ -101,7 +101,10 @@ impl App {
         }
 
         #[cfg(target_os = "macos")]
-        if let Ok(data) = std::fs::read("/System/Library/Fonts/SFNSText.ttf") {
+        {
+            let data = std::fs::read("/System/Library/Fonts/SFNSText.ttf")
+                .context("hey! please open an issue, i don't have a mac to test this on!")?;
+
             fonts
                 .font_data
                 .insert("SFNSText".to_owned(), FontData::from_owned(data));

@@ -16,7 +16,7 @@ pub struct Instance {
     pub layout: HubLayout,
     pub game_cfgs: GameCfg,
     pub game_dirs: Vec<PathBuf>,
-    pub game_imgs: BTreeMap<TitleId, PathBuf>,
+    pub game_library: BTreeMap<TitleId, PathBuf>,
     pub game_img_tex: BTreeMap<TitleId, egui::TextureHandle>,
 }
 
@@ -69,16 +69,19 @@ impl TryFrom<&Cli> for Instance {
             .map(|p| p.canonicalize())
             .collect::<Result<_, _>>()?;
 
+        // let game_library = game_dirs.;
+        let game_library = Default::default();
+
         Ok(Instance {
             layout: cfg.layout.unwrap_or_default(),
             game_dirs: game_dirs.into_iter().collect(),
+            game_library,
 
             cfg_dir,
             cfg_file,
             cfg,
 
             game_cfgs: Default::default(),
-            game_imgs: Default::default(),
             game_img_tex: Default::default(),
         })
     }

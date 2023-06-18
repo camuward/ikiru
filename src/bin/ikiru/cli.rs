@@ -50,7 +50,7 @@ pub enum SubCmd {
 }
 
 impl SubCmd {
-    pub fn exec(&self, cli: &Cli, instance: Instance) -> eyre::Result<()> {
+    pub fn exec(&self, cli: &Cli, instance: Box<Instance>) -> eyre::Result<()> {
         todo!()
     }
 }

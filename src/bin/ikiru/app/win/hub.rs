@@ -63,8 +63,8 @@ impl Window {
 
                 ui.separator();
 
-                ui.label("Layout");
                 ui.group(|ui| {
+                    ui.label("Layout");
                     ui.radio_value(&mut app.layout, HubLayout::Grid, "Grid");
                     ui.radio_value(&mut app.layout, HubLayout::List, "List");
                     ui.radio_value(&mut app.layout, HubLayout::Pro, "Pro");
@@ -78,31 +78,11 @@ impl Window {
         });
 
         match app.layout {
-            HubLayout::Grid => draw_grid(app, ctx),
+            HubLayout::Grid => grid::draw(app, ctx),
             HubLayout::List => draw_list(app, ctx),
             HubLayout::Pro => draw_pro(app, ctx),
         }
     }
-}
-
-fn draw_grid(app: &mut Instance, ctx: &egui::Context) {
-    egui::CentralPanel::default().show(ctx, |ui| {
-        ui.heading("Grid");
-        egui::Grid::new("hub_grid").show(ui, |ui| {
-            for i in 0..100 {
-                static TEX: OnceLock<egui::TextureHandle> = OnceLock::new();
-                let t = TEX.get_or_init(|| {
-                    ctx.load_texture(
-                        "hub-grid-img",
-                        egui::ColorImage::example(),
-                        Default::default(),
-                    )
-                });
-
-                ui.add(ImageButton::new(t, egui::Vec2::new(64.0, 128.0)));
-            }
-        });
-    });
 }
 
 fn draw_list(app: &mut Instance, ctx: &egui::Context) {
