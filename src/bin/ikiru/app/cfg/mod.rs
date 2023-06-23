@@ -6,9 +6,10 @@ use std::path::PathBuf;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
+use crate::cfg::{Cfg, Profile, ProfileBuilder};
+use ikiru::game::TitleId;
+
 pub use self::instance::Instance;
-use crate::cfg::{Cfg, HubLayout, Profile, ProfileBuilder};
-use ikiru::misc::TitleId;
 
 pub mod input;
 mod instance;

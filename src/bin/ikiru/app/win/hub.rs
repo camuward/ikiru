@@ -1,38 +1,33 @@
 use std::sync::OnceLock;
 
-use egui::{Align, Button, Id, ImageButton, Layout, RichText, Sense};
+use egui::{Align, Button, Id, ImageButton, RichText, Sense};
+use serde::{Deserialize, Serialize};
+use strum::EnumDiscriminants;
 
 use crate::app::cfg::Instance;
 use crate::app::win::title_bar::TitleBar;
-use crate::cfg::HubLayout;
-use ikiru::misc::TitleId;
+use ikiru::game::TitleId;
 
 mod grid;
 
+#[derive(Debug, Default)]
 pub struct Window {
-    state: HubWindowState,
-    children: HubChildren,
+    pub is_open: bool,
+
+    pub layout: Layout,
+    pub children: Children,
 }
 
 impl Window {
-    pub fn new_open() -> Self {
-        Self {
-            state: HubWindowState::Open(),
-            children: HubChildren {},
-        }
-    }
-
-    pub fn new_closed() -> Self {
-        Self {
-            state: HubWindowState::Closed,
-            children: HubChildren {},
-        }
-    }
-
-    pub fn show(&mut self, app: &mut Instance, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let HubWindowState::Open() = self.state else {
-            return;
-        };
+    pub fn show(
+        &mut self,
+        app: &mut Instance,
+        ctx: &egui::Context,
+        frame: &mut eframe::Frame,
+    ) -> eyre::Result<()> {
+        // if !self.is_open {
+        //     return Ok(());
+        // }
 
         TitleBar("hub_title_bar").ui(app, ctx, frame, |app, ctx, frame, ui| {
             ui.menu_button("File", |ui| {
@@ -65,9 +60,9 @@ impl Window {
 
                 ui.group(|ui| {
                     ui.label("Layout");
-                    ui.radio_value(&mut app.layout, HubLayout::Grid, "Grid");
-                    ui.radio_value(&mut app.layout, HubLayout::List, "List");
-                    ui.radio_value(&mut app.layout, HubLayout::Pro, "Pro");
+                    ui.radio_value(&mut self.layout, Layout::Grid { selected: None }, "Grid");
+                    ui.radio_value(&mut self.layout, Layout::List, "List");
+                    ui.radio_value(&mut self.layout, Layout::Pro, "Pro");
                 });
             });
 
@@ -77,11 +72,7 @@ impl Window {
             });
         });
 
-        match app.layout {
-            HubLayout::Grid => grid::draw(app, ctx),
-            HubLayout::List => draw_list(app, ctx),
-            HubLayout::Pro => draw_pro(app, ctx),
-        }
+        self.layout.draw(app, ctx)
     }
 }
 
@@ -97,12 +88,20 @@ fn draw_pro(app: &mut Instance, ctx: &egui::Context) {
     });
 }
 
-pub enum HubWindowState {
-    Open(),
-    Closed,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumDiscriminants)]
+#[strum_discriminants(derive(Default, Serialize, Deserialize))]
+#[strum_discriminants(name(LayoutType))]
+pub enum Layout {
+    #[strum_discriminants(default)]
+    Grid {
+        selected: Option<TitleId>,
+    },
+    List,
+    Pro,
 }
 
-pub struct HubChildren {
+#[derive(Debug, Default)]
+pub struct Children {
     // input_cfg: InputSettingsWindow,
     // global_cfg: GlobalSettings,
     // game_cfg: Vec<GameSettings>
@@ -112,4 +111,20 @@ pub struct GameSettings {
     title: TitleId,
     // input_cfg: InputSettings,
     // graphic_packs: Vec<GraphicPack>,
+}
+
+impl Layout {
+    pub fn draw(&mut self, app: &mut Instance, ctx: &egui::Context) -> eyre::Result<()> {
+        match self {
+            Layout::Grid { .. } => grid::draw(self, app, ctx),
+            Layout::List => Ok(draw_list(app, ctx)),
+            Layout::Pro => Ok(draw_pro(app, ctx)),
+        }
+    }
+}
+
+impl Default for Layout {
+    fn default() -> Self {
+        Self::Grid { selected: None }
+    }
 }

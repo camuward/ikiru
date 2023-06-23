@@ -1,14 +1,17 @@
 //! Master config file for the application.
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use ikiru::misc::graphic_pack::cfg::GraphicPackCfg;
-use ikiru::misc::TitleId;
+use ikiru::game::TitleId;
+use ikiru::util::graphic_pack::cfg::GraphicPackCfg;
 
+use crate::app::win::hub;
+
+pub mod game;
 pub mod input;
 
 /// The main config file at `~/.config/ikiru/config.toml`.
@@ -27,7 +30,7 @@ pub struct Cfg {
 
     /// Set a default view mode for the hub.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub layout: Option<HubLayout>,
+    pub layout: Option<hub::LayoutType>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Builder)]
@@ -42,14 +45,6 @@ pub struct Profile {
     /// Override the graphics pack config for this game.
     #[serde(default)]
     pub graphics_packs: HashMap<String, GraphicPackCfg>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum HubLayout {
-    #[default]
-    Grid,
-    List,
-    Pro,
 }
 
 #[derive(Debug, Error)]

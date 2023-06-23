@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use derive_builder::Builder;
 
-use crate::misc::TitleId;
+use crate::game::TitleId;
 
 pub mod cafe;
 pub mod cpu;

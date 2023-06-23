@@ -24,6 +24,11 @@ impl TitleId {
     pub const fn id(&self) -> u64 {
         self.0
     }
+
+    pub fn is_game(&self) -> bool {
+        // self.0 & 0x8000_0000_0000_0000 != 0
+        true
+    }
 }
 
 struct Vis;

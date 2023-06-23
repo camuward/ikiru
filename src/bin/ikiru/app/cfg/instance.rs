@@ -1,11 +1,14 @@
 use std::collections::{BTreeMap, HashSet};
-use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::{fs, io};
 
-use crate::app::cfg::GameCfg;
-use crate::cfg::{self, Cfg, CfgError, HubLayout};
+use egui::TextureHandle;
+
+use crate::app::{cfg::GameCfg, win::hub};
+use crate::cfg::game::{GameEntry, GameLibrary};
+use crate::cfg::{Cfg, CfgError};
 use crate::cli::{self, Cli, CliError};
-use ikiru::misc::TitleId;
+use ikiru::game::TitleId;
 
 #[derive(Clone)]
 pub struct Instance {
@@ -13,11 +16,10 @@ pub struct Instance {
     pub cfg_file: PathBuf,
     pub cfg: Cfg,
 
-    pub layout: HubLayout,
+    pub init_layout: hub::LayoutType,
     pub game_cfgs: GameCfg,
-    pub game_dirs: Vec<PathBuf>,
-    pub game_library: BTreeMap<TitleId, PathBuf>,
-    pub game_img_tex: BTreeMap<TitleId, egui::TextureHandle>,
+    pub game_library: GameLibrary,
+    pub game_img_tex: BTreeMap<TitleId, TextureHandle>,
 }
 
 impl Instance {
@@ -31,50 +33,16 @@ impl TryFrom<&Cli> for Instance {
     type Error = eyre::Error;
 
     fn try_from(cli: &Cli) -> Result<Self, Self::Error> {
-        let cfg_dir: PathBuf = {
-            let _e = debug_span!("find_cfg_dir").entered();
+        let cfg_dir: PathBuf = find_cfg_dir(cli)?;
+        let cfg_file: PathBuf = find_cfg_file(&cfg_dir)?;
 
-            // get the default config dir, or use the one specified by the user
-            let get_default_dir = || dirs::config_dir().map(|path| path.join("ikiru"));
-            let path = cli.cfg_dir.clone().or_else(get_default_dir);
-
-            match path {
-                None => bail!(CliError::CfgDirNotFound),
-                Some(dir) if !dir.try_exists()? => {
-                    let _e = debug_span!("create_cfg_dir", path = ?dir).entered();
-                    std::fs::create_dir_all(&dir)?;
-
-                    dir
-                }
-                Some(dir) if !dir.is_dir() => bail!(CliError::CfgDirNotDir(dir)),
-                Some(dir) => dir,
-            }
-        };
-
-        let cfg_file = cfg_dir.join("config.toml");
-        if !cfg_file.try_exists()? {
-            let _e = debug_span!("create_cfg_file", path = ?cfg_file).entered();
-
-            let cfg = toml_edit::ser::to_string(&cfg::Cfg::default())?;
-            std::fs::write(&cfg_file, cfg)?;
-        }
-
-        let cfg: cfg::Cfg = toml_edit::de::from_slice(&std::fs::read(&cfg_file)?)
+        let cfg: Cfg = toml_edit::de::from_slice(&std::fs::read(&cfg_file)?)
             .map_err(|e| CfgError::Parse(e, cfg_file.clone()))?;
 
-        let mut game_dirs: HashSet<PathBuf> = cfg
-            .game_dirs
-            .iter()
-            .chain(&cli.append)
-            .map(|p| p.canonicalize())
-            .collect::<Result<_, _>>()?;
-
-        // let game_library = game_dirs.;
-        let game_library = Default::default();
+        let game_library = GameLibrary::new(cfg.game_dirs.iter().chain(&cli.append))?;
 
         Ok(Instance {
-            layout: cfg.layout.unwrap_or_default(),
-            game_dirs: game_dirs.into_iter().collect(),
+            init_layout: cfg.layout.unwrap_or_default(),
             game_library,
 
             cfg_dir,
@@ -85,4 +53,36 @@ impl TryFrom<&Cli> for Instance {
             game_img_tex: Default::default(),
         })
     }
+}
+
+#[instrument(ret, level = "debug")]
+fn find_cfg_dir(cli: &Cli) -> eyre::Result<PathBuf> {
+    let get_default_dir = || dirs::config_dir().map(|path| path.join("ikiru"));
+    let path = cli.cfg_dir.clone().or_else(get_default_dir);
+
+    Ok(match path {
+        None => bail!(CliError::CfgDirNotFound),
+        Some(dir) if !dir.try_exists()? => {
+            let _e = debug_span!("create_cfg_dir", path = ?dir).entered();
+            std::fs::create_dir_all(&dir)?;
+
+            dir
+        }
+        Some(dir) if !dir.is_dir() => bail!(CliError::CfgDirNotDir(dir)),
+        Some(dir) => dir,
+    })
+}
+
+#[instrument(ret, level = "debug")]
+fn find_cfg_file(cfg_dir: &Path) -> eyre::Result<PathBuf> {
+    let cfg_file = cfg_dir.join("config.toml");
+
+    if !cfg_file.try_exists()? {
+        let _e = debug_span!("create_cfg_file", path = ?cfg_file).entered();
+
+        let cfg = toml_edit::ser::to_string(&Cfg::default())?;
+        std::fs::write(&cfg_file, cfg)?;
+    }
+
+    Ok(cfg_file)
 }

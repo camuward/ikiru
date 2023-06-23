@@ -2,7 +2,8 @@
 #![allow(unused)]
 
 pub mod emu;
-pub mod misc;
+pub mod game;
+pub mod util;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const VER_MAJOR: u32 = pkg_version::pkg_version_major!();

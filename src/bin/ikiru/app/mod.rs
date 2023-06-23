@@ -3,7 +3,7 @@ use tokio::runtime::Runtime;
 
 use crate::gfx;
 use ikiru::emu::EmuParams;
-use ikiru::misc::TitleId;
+use ikiru::game::TitleId;
 
 pub mod cfg;
 
@@ -44,7 +44,10 @@ impl App {
 
             rt: Runtime::new()?,
             // cfg: cfg::Cfg::load(Path::new("cfg.toml")),
-            hub: win::hub::Window::new_open(),
+            hub: win::hub::Window {
+                is_open: true,
+                ..Default::default()
+            },
             emu: Vec::new(),
         })
     }
@@ -68,7 +71,7 @@ impl App {
 
             rt: Runtime::new()?,
             // cfg: cfg::Cfg::load(Path::new("cfg.toml")),
-            hub: win::hub::Window::new_closed(),
+            hub: Default::default(),
             emu: vec![gfx::spawn(EmuParams {
                 paths: todo!(),
                 dlc: todo!(),
